@@ -75,7 +75,7 @@ export const SidebarRight: React.FC<SidebarRightProps> = ({
         setIsItalic(existing.italic !== undefined ? existing.italic : selectedElement.italic);
         setIsUnderline(!!existing.underline);
         setTextColor(existing.color || selectedElement.color || '#000000');
-        setFillColor(existing.fill_color || '#ffffff');
+        setFillColor(existing.fill_color || selectedElement.bg_color || '#ffffff');
         setAlignment(existing.align || 'left');
       } else {
         setTextValue(selectedElement.text);
@@ -85,7 +85,7 @@ export const SidebarRight: React.FC<SidebarRightProps> = ({
         setIsItalic(selectedElement.italic || false);
         setIsUnderline(false);
         setTextColor(selectedElement.color || '#000000');
-        setFillColor('#ffffff');
+        setFillColor(selectedElement.bg_color || '#ffffff');
         setAlignment('left');
       }
       setActiveTab('inspector');
@@ -105,7 +105,7 @@ export const SidebarRight: React.FC<SidebarRightProps> = ({
       font: fontFamily,
       size: Number(fontSize),
       color: textColor,
-      fill_color: fillColor,
+      fill_color: fillColor || selectedElement.bg_color || '#ffffff',
       bold: isBold,
       italic: isItalic,
       underline: isUnderline,
@@ -321,6 +321,66 @@ export const SidebarRight: React.FC<SidebarRightProps> = ({
                       title={c}
                     />
                   ))}
+                </div>
+              </div>
+
+              {/* Background Fill Color (Table Cells & Colored Boxes) */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-medium text-slate-700">
+                    Background Fill Color
+                  </label>
+                  {selectedElement.bg_color && selectedElement.bg_color.toLowerCase() !== '#ffffff' && (
+                    <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                      Auto-matched Box
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center space-x-2 mb-2">
+                  <input
+                    type="color"
+                    value={fillColor === 'transparent' ? '#ffffff' : fillColor}
+                    onChange={(e) => setFillColor(e.target.value)}
+                    className="w-7 h-7 rounded border border-slate-200 cursor-pointer p-0.5"
+                  />
+                  <input
+                    type="text"
+                    value={fillColor}
+                    onChange={(e) => setFillColor(e.target.value)}
+                    className="flex-1 p-1 text-xs border border-slate-200 rounded font-mono uppercase text-slate-800"
+                  />
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {selectedElement.bg_color && (
+                    <button
+                      type="button"
+                      onClick={() => setFillColor(selectedElement.bg_color!)}
+                      className={`text-[10px] px-2 py-1 rounded border flex items-center gap-1 transition ${
+                        fillColor.toLowerCase() === (selectedElement.bg_color || '').toLowerCase()
+                          ? 'bg-blue-50 border-blue-400 text-blue-700 font-semibold ring-1 ring-blue-400'
+                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                      }`}
+                      title="Match detected cell background color"
+                    >
+                      <span
+                        className="w-2.5 h-2.5 rounded-full border border-slate-300 inline-block shrink-0"
+                        style={{ backgroundColor: selectedElement.bg_color }}
+                      />
+                      <span>Auto Match ({selectedElement.bg_color})</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setFillColor('#ffffff')}
+                    className={`text-[10px] px-2 py-1 rounded border flex items-center gap-1 transition ${
+                      fillColor.toLowerCase() === '#ffffff'
+                        ? 'bg-blue-50 border-blue-400 text-blue-700 font-semibold ring-1 ring-blue-400'
+                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span className="w-2.5 h-2.5 rounded-full border border-slate-300 bg-white inline-block shrink-0" />
+                    <span>White (#ffffff)</span>
+                  </button>
                 </div>
               </div>
 

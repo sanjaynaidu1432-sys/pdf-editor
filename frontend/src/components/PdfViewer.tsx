@@ -146,7 +146,7 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
       font: el.font,
       size: el.size,
       color: el.color,
-      fill_color: '#ffffff',
+      fill_color: el.bg_color || '#ffffff',
       bold: el.bold,
       italic: el.italic,
       underline: false,
@@ -199,6 +199,11 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
               const width = Math.max((el.bbox[2] - el.bbox[0]) * zoom, 12);
               const height = Math.max((el.bbox[3] - el.bbox[1]) * zoom, 10);
 
+              const overlayBgColor =
+                existingEdit?.fill_color && existingEdit.fill_color !== 'transparent'
+                  ? existingEdit.fill_color
+                  : el.bg_color || '#ffffff';
+
               return (
                 <div
                   key={el.id}
@@ -230,12 +235,12 @@ export const PdfViewer: React.FC<PdfViewerProps> = ({
                       : 'hover:ring-1 hover:ring-blue-300'
                   }`}
                 >
-                  {/* If text was edited, show live preview layer directly over the original */}
+                  {/* If text was edited, show live preview layer directly over the original with matching background */}
                   {isEdited && !isInlineEditing && (
                     <div
-                      className="absolute inset-0 flex items-center px-0.5 shadow-2xs"
+                      className="absolute inset-0 flex items-center px-0.5 rounded-xs"
                       style={{
-                        backgroundColor: existingEdit.fill_color || '#ffffff',
+                        backgroundColor: overlayBgColor,
                         color: existingEdit.color || el.color,
                         fontFamily: existingEdit.font || el.font,
                         fontSize: `${(existingEdit.size || el.size) * zoom}px`,

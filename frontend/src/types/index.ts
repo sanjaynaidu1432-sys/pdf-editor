@@ -9,6 +9,7 @@ export interface TextElement {
   font: string;
   size: number;
   color: string;
+  bg_color?: string;
   bold: boolean;
   italic: boolean;
   ascender?: number;

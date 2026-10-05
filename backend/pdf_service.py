@@ -3,6 +3,7 @@ import os
 import re
 import uuid
 from typing import List, Dict, Any, Optional, Tuple
+from collections import Counter
 import pymupdf  # fitz
 
 # Supported standard base-14 and common PDF fonts
@@ -45,6 +46,33 @@ def int_color_to_hex(color_int: int) -> str:
     r = (color_int >> 16) & 255
     g = (color_int >> 8) & 255
     b = color_int & 255
+    return f"#{r:02x}{g:02x}{b:02x}"
+
+def sample_bg_color(pix: pymupdf.Pixmap, bbox: List[float], text_hex: str) -> str:
+    """
+    Robustly samples the background color behind/around a text span bounding box.
+    Filters out pixels that match the text color, returning the dominant background hex.
+    """
+    x0, y0, x1, y1 = [int(v) for v in bbox]
+    w, h = pix.width, pix.height
+    candidates = [
+        (max(0, x0 - 2), min(h - 1, max(0, (y0 + y1) // 2))),
+        (min(w - 1, x1 + 2), min(h - 1, max(0, (y0 + y1) // 2))),
+        (min(w - 1, max(0, x0 + 1)), max(0, y0 - 2)),
+        (min(w - 1, max(0, x0 + 1)), min(h - 1, max(0, y0 + 1))),
+        (min(w - 1, max(0, (x0 + x1) // 2)), max(0, y0 - 2)),
+        (max(0, min(w - 1, x0)), max(0, min(h - 1, y0))),
+    ]
+    colors = []
+    text_hex_lower = text_hex.lower()
+    for px, py in candidates:
+        r, g, b = pix.pixel(px, py)[:3]
+        hex_c = f"#{r:02x}{g:02x}{b:02x}"
+        if hex_c.lower() != text_hex_lower:
+            colors.append(hex_c)
+    if colors:
+        return Counter(colors).most_common(1)[0][0]
+    r, g, b = pix.pixel(max(0, min(w - 1, x0)), max(0, min(h - 1, y0)))[:3]
     return f"#{r:02x}{g:02x}{b:02x}"
 
 def resolve_font_name(font_name: str, bold: bool = False, italic: bool = False) -> str:
@@ -103,6 +131,9 @@ class PDFService:
             images = page.get_images()
             total_image_count += len(images)
 
+            # Render page pixmap to sample exact background colors
+            pix = page.get_pixmap()
+
             span_counter = 0
             for block in raw.get("blocks", []):
                 # Text blocks
@@ -128,6 +159,9 @@ class PDFService:
                             bbox = [round(v, 2) for v in span.get("bbox", [0, 0, 0, 0])]
                             origin = [round(v, 2) for v in span.get("origin", [bbox[0], bbox[3]])]
 
+                            # Sample background color behind/around the bbox
+                            bg_hex = sample_bg_color(pix, bbox, color_hex)
+
                             blocks_data.append({
                                 "id": f"p{page_idx}_{int(bbox[0])}_{int(bbox[1])}_{span_counter}",
                                 "page": page_idx,
@@ -139,6 +173,7 @@ class PDFService:
                                 "font": font_name,
                                 "size": font_size,
                                 "color": color_hex,
+                                "bg_color": bg_hex,
                                 "bold": is_bold,
                                 "italic": is_italic,
                                 "ascender": round(span.get("ascender", 1.0), 2),
@@ -203,13 +238,16 @@ class PDFService:
             for edit in page_edits:
                 is_new_text_box = edit.get("isNew", False)
                 bbox = edit.get("bbox")
-                fill_hex = edit.get("fill_color", "#ffffff")
-                fill_rgb = hex_to_rgb_float(fill_hex)
+                fill_hex = edit.get("fill_color") or edit.get("bg_color") or "#ffffff"
 
                 if not is_new_text_box and bbox:
                     # Expand rect slightly (0.5 pt) to prevent anti-aliasing ghost fringes
                     rect = pymupdf.Rect(bbox[0] - 0.5, bbox[1] - 0.5, bbox[2] + 0.5, bbox[3] + 0.5)
-                    page.add_redact_annot(rect, fill=fill_rgb)
+                    if str(fill_hex).lower() == "transparent":
+                        page.add_redact_annot(rect, fill=False)
+                    else:
+                        fill_rgb = hex_to_rgb_float(str(fill_hex))
+                        page.add_redact_annot(rect, fill=fill_rgb)
                     has_redactions = True
 
             # Phase 2: Apply all redactions together on the page

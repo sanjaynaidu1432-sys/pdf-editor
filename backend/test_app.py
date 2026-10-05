@@ -152,7 +152,62 @@ def test_full_workflow():
     assert "<!doctype html>" in res.text.lower()
     print("Frontend index.html served successfully via FastAPI!")
 
-    print("\nALL 9 AUTOMATED TESTS PASSED WITH 100% SUCCESS!")
+    print("\n=== TEST 10: Colored Box & Table Cell Background Matching ===")
+    res = client.get("/api/sample/invoice")
+    assert res.status_code == 200
+    inv_data = res.json()
+    inv_session = inv_data["sessionId"]
+    inv_elements = inv_data["pages"][0]["elements"]
+    
+    # Locate total amount "$25,775.00" inside colored box (y ~ 447)
+    total_el = None
+    for el in inv_elements:
+        if "25,775.00" in el["text"] and el["bg_color"] != "#ffffff":
+            total_el = el
+            break
+    assert total_el is not None
+    assert total_el["bg_color"] == "#dbfbe6", f"Expected #dbfbe6, got {total_el['bg_color']}"
+    print(f"Found colored cell: '{total_el['text']}' with sampled bg_color: {total_el['bg_color']}")
+
+    # Apply edit changing $25,775.00 to $99,999.00 with matching bg_color
+    res = client.post("/api/apply-edits", json={
+        "sessionId": inv_session,
+        "edits": [{
+            "id": total_el["id"],
+            "page": total_el["page"],
+            "original_text": total_el["text"],
+            "new_text": "$99,999.00",
+            "bbox": total_el["bbox"],
+            "origin": total_el["origin"],
+            "font": total_el["font"],
+            "size": total_el["size"],
+            "color": total_el["color"],
+            "fill_color": total_el["bg_color"],
+            "bold": total_el["bold"],
+            "italic": total_el["italic"],
+            "underline": False,
+            "align": "left",
+            "isNew": False
+        }]
+    })
+    assert res.status_code == 200
+    inv_edit_res = res.json()
+    assert inv_edit_res["success"] is True
+
+    # Verify pixel in the edited PDF at bbox is NOT white (#ffffff)
+    import base64
+    from backend.pdf_service import PDFService
+    edited_bytes = base64.b64decode(inv_edit_res["editedPdfBase64"])
+    ed_doc = fitz.open(stream=edited_bytes, filetype="pdf")
+    ed_pix = ed_doc[0].get_pixmap()
+    cx = int((total_el["bbox"][0] + total_el["bbox"][2]) / 2)
+    cy = int((total_el["bbox"][1] + total_el["bbox"][3]) / 2)
+    ed_pixel = ed_pix.pixel(cx, cy)
+    print(f"Pixel at edited box center: {ed_pixel} (not 255, 255, 255)")
+    assert ed_pixel != (255, 255, 255), "Colored box was wiped to white instead of matching cell color!"
+    print("Zero white box artifact verified on colored cell!")
+
+    print("\nALL 10 AUTOMATED TESTS PASSED WITH 100% SUCCESS!")
 
 if __name__ == "__main__":
     test_full_workflow()

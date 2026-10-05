@@ -1,0 +1,17 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+
+# Node & Frontend
+node_modules/
+frontend/node_modules/
+frontend/dist/
+.DS_Store
+
+# Logs & temp
+service.log
+service_err.log

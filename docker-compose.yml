@@ -1,0 +1,10 @@
+services:
+  pdf-editor:
+    build: .
+    container_name: aurapdf-app
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - HOST=0.0.0.0
